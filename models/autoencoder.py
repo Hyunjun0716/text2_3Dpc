@@ -11,8 +11,12 @@ class AutoEncoder(Module):
         super().__init__()
         self.args = args
         self.encoder = PointNetEncoder(zdim=args.latent_dim)
+
+        # Text dimension from CLIP (512 for CLIP base model)
+        text_dim = getattr(args, 'text_dim', 0)
+
         self.diffusion = DiffusionPoint(
-            net = PointwiseNet(point_dim=3, context_dim=args.latent_dim, residual=args.residual),
+            net = PointwiseNet(point_dim=3, context_dim=args.latent_dim, residual=args.residual, text_dim=text_dim),
             var_sched = VarianceSchedule(
                 num_steps=args.num_steps,
                 beta_1=args.beta_1,
@@ -29,10 +33,10 @@ class AutoEncoder(Module):
         code, _ = self.encoder(x)
         return code
 
-    def decode(self, code, num_points, flexibility=0.0, ret_traj=False):
-        return self.diffusion.sample(num_points, code, flexibility=flexibility, ret_traj=ret_traj)
+    def decode(self, code, num_points, text_emb=None, flexibility=0.0, ret_traj=False):
+        return self.diffusion.sample(num_points, code, text_emb=text_emb, flexibility=flexibility, ret_traj=ret_traj)
 
-    def get_loss(self, x):
+    def get_loss(self, x, text_emb=None):
         code = self.encode(x)
-        loss = self.diffusion.get_loss(x, code)
+        loss = self.diffusion.get_loss(x, code, text_emb=text_emb)
         return loss

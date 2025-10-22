@@ -14,26 +14,35 @@ class FlowVAE(Module):
         self.args = args
         self.encoder = PointNetEncoder(args.latent_dim)
         self.flow = build_latent_flow(args)
+
+        # Text dimension from CLIP (512 for CLIP base model)
+        text_dim = getattr(args, 'text_dim', 0)
+        use_alignment_loss = getattr(args, 'use_alignment_loss', True)
+        alignment_weight = getattr(args, 'alignment_weight', 0.1)
+
         self.diffusion = DiffusionPoint(
-            net = PointwiseNet(point_dim=3, context_dim=args.latent_dim, residual=args.residual),
+            net = PointwiseNet(point_dim=3, context_dim=args.latent_dim, residual=args.residual, text_dim=text_dim),
             var_sched = VarianceSchedule(
                 num_steps=args.num_steps,
                 beta_1=args.beta_1,
                 beta_T=args.beta_T,
                 mode=args.sched_mode
-            )
+            ),
+            use_alignment_loss=use_alignment_loss,
+            alignment_weight=alignment_weight
         )
 
-    def get_loss(self, x, kl_weight, writer=None, it=None):
+    def get_loss(self, x, kl_weight, text_emb=None, writer=None, it=None):
         """
         Args:
             x:  Input point clouds, (B, N, d).
+            text_emb: Text embeddings from CLIP. (B, text_dim). Optional.
         """
         batch_size, _, _ = x.size()
         # print(x.size())
         z_mu, z_sigma = self.encoder(x)
         z = reparameterize_gaussian(mean=z_mu, logvar=z_sigma)  # (B, F)
-        
+
         # H[Q(z|X)]
         entropy = gaussian_entropy(logvar=z_sigma)      # (B, )
 
@@ -43,7 +52,7 @@ class FlowVAE(Module):
         log_pz = log_pw - delta_log_pw.view(batch_size, 1)  # (B, 1)
 
         # Negative ELBO of P(X|z)
-        neg_elbo = self.diffusion.get_loss(x, z)
+        neg_elbo = self.diffusion.get_loss(x, z, text_emb=text_emb, writer=writer, it=it)
 
         # Loss
         loss_entropy = -entropy.mean()
@@ -61,11 +70,11 @@ class FlowVAE(Module):
 
         return loss
 
-    def sample(self, w, num_points, flexibility, truncate_std=None):
+    def sample(self, w, num_points, flexibility, text_emb=None, truncate_std=None):
         batch_size, _ = w.size()
         if truncate_std is not None:
             w = truncated_normal_(w, mean=0, std=1, trunc_std=truncate_std)
         # Reverse: z <- w.
         z = self.flow(w, reverse=True).view(batch_size, -1)
-        samples = self.diffusion.sample(num_points, context=z, flexibility=flexibility)
+        samples = self.diffusion.sample(num_points, context=z, text_emb=text_emb, flexibility=flexibility)
         return samples

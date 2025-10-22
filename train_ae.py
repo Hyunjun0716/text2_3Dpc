@@ -99,7 +99,7 @@ val_loader = DataLoader(val_dset, batch_size=args.val_batch_size, num_workers=0)
 logger.info('Building model...')
 if args.resume is not None:
     logger.info('Resuming from checkpoint...')
-    ckpt = torch.load(args.resume)
+    ckpt = torch.load(args.resume, weights_only=False)
     model = AutoEncoder(ckpt['args']).to(args.device)
     model.load_state_dict(ckpt['state_dict'])
 else:

@@ -1,9 +1,9 @@
 """
 From https://github.com/stevenygd/PointFlow/tree/master/metrics
 """
-import torch
-import numpy as np
 import warnings
+import numpy as np
+import torch
 from scipy.stats import entropy
 from sklearn.neighbors import NearestNeighbors
 from numpy.linalg import norm

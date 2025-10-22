@@ -131,3 +131,21 @@ dmypy.json
 .DS_Store
 /playgrounds
 /logs*
+
+# Data files
+/data/
+*.hdf5
+*.pt
+*.pth
+
+# Checkpoints and models
+/checkpoints/
+/outputs/
+/visualizations/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
